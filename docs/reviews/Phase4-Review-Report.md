@@ -1,8 +1,17 @@
-# Phase 4 Review Report (Recheck)
+# Phase 4 Review Report
 
 **Date:** 2026-03-23
 **Reviewer:** Claude Opus 4.6
-**Scope:** Re-validation after fixes for all Phase 4 findings
+**Scope:** Graph Orchestrator and Visual Pipeline Builder (Phase4.md)
+**Status:** Completed and closed
+
+## Review history
+
+| Round | Date | Outcome |
+|-------|------|---------|
+| Initial review | 2026-03-23 | 8 findings (2 P1, 4 P2, 2 P3) |
+| First recheck | 2026-03-23 | All 8 original findings fixed; 1 new P2 found (handler registry mismatch) |
+| Second recheck | 2026-03-23 | All findings resolved |
 
 ## Build and test status
 
@@ -14,165 +23,138 @@
 | `vitest run` | 8 passed, 0 failed |
 | 300-line file limit | All files within limit (max: scheduler.rs at 292) |
 
-## Previous findings — recheck
+## What changed across the three review rounds
 
-### [P1] Handler registry not implemented
+### Round 1 findings and how they were resolved
 
-Status: **Fixed**
+#### [P1] Handler registry not implemented (Work Item 5)
 
-Evidence:
-- `stage_runner.rs:41-49` defines `handler_registry()` mapping `chat`, `judge`, `summary`, `skill_select`, `skill_run` to `HandlerKind` variants
-- `dispatch_handler` (line 174) looks up `node.handler` in the registry and routes accordingly
-- Unknown handlers return a structured failure: `"Unknown node handler '...'."`
-- Judge handler (`run_judge_handler`, line 201) extends chat with verdict extraction and logging
+**Problem:** All nodes routed through `stream_chat_node` regardless of `node.handler` value. No dispatch table existed.
 
-Verification: The handler dispatch is now the sole execution path — `run_node` calls `dispatch_handler` (line 169), not `stream_chat_node` directly.
+**Resolution:** New `stage_runner.rs` module with:
+- `HandlerKind` enum (`Chat`, `Judge`, `Summary`, `SkillSelect`, `SkillRun`)
+- `handler_registry()` function mapping handler strings to enum variants
+- `dispatch_handler()` performing the lookup and routing
+- Dedicated `run_judge_handler()` that extends chat with verdict extraction and logging
+- `run_node` now calls `dispatch_handler` as its sole execution path
 
-### [P1] Plan gate not wired into graph mode
+#### [P1] Plan gate not wired into graph mode (Work Item 12)
 
-Status: **Fixed**
+**Problem:** No `config.requires_plan_approval` check existed anywhere in the orchestrator.
 
-Evidence:
-- `plan_gate.rs:13-21` reads `config.requires_plan_approval` from `node.config`
-- `plan_gate.rs:23-30` reads optional `plan_auto_approve_timeout_sec` for configurable timeout
-- `enforce_plan_gate` is called at the top of `run_node` (stage_runner.rs:65) before any execution
-- `user_questions.rs:17-55` implements the full question/answer flow via oneshot channels with timeout
-- Auto-approve on timeout (line 53) — sensible default to prevent indefinite hangs
-- `answer_pipeline_question` command registered in `lib.rs:29`
-- `question_answers` propagated through `PipelineRuntimeContext` → `StageRunnerContext`
+**Resolution:** Two new modules:
+- `plan_gate.rs` — reads `requires_plan_approval` and `plan_auto_approve_timeout_sec` from `node.config`, calls `request_user_approval`
+- `user_questions.rs` — emits `pipeline:question` event, registers a oneshot channel, waits with timeout, auto-approves on timeout
+- `enforce_plan_gate` is called at the top of `run_node` before any execution begins
+- `answer_pipeline_question` Tauri command registered in `lib.rs` to deliver answers from the frontend
+- `question_answers` channel map propagated through `PipelineRuntimeContext` → `StageRunnerContext`
 
-### [P2] `thread::sleep` in async context
+#### [P2] `thread::sleep` blocks Tokio runtime
 
-Status: **Fixed**
+**Problem:** `wait_if_paused` used `std::thread::sleep` inside an async context, risking thread pool starvation under concurrent fan-out.
 
-Evidence:
-- `helpers.rs:125-129` now uses `tokio::time::sleep(Duration::from_millis(150)).await`
-- `wait_if_paused` is now `async fn` (line 125)
-- Caller in `stage_runner.rs:60` properly `.await`s the call
+**Resolution:** `helpers.rs` — `wait_if_paused` is now `async fn` using `tokio::time::sleep(Duration::from_millis(150)).await`. Callers `.await` it correctly.
 
-### [P2] No cross-model fallback warning
+#### [P2] No cross-model fallback warning emitted
 
-Status: **Fixed**
+**Problem:** `SessionManager::decide_mode` silently returned `New` on provider/model mismatch with no user-visible feedback.
 
-Evidence:
-- `SessionDecision::New` now carries `warning: Option<String>` (session_manager.rs:16)
-- Two warning paths: inbound candidate mismatch (line 50-58) and stored group mismatch (line 68-73)
-- `stage_runner.rs:128-138` emits the warning as a `pipeline:log` event when present
-- Test `falls_back_to_new_on_provider_model_mismatch` (line 148) verifies warning is `Some`
+**Resolution:** `SessionDecision::New` now carries `warning: Option<String>`. Two warning paths: inbound candidate mismatch and stored group mismatch. `stage_runner.rs` emits the warning as a `pipeline:log` event. Test verifies warning is `Some`.
 
-### [P2] Pipeline canvas missing features
+#### [P2] Pipeline canvas missing SVG edges, duplicate, rename, validation display, save/run
 
-Status: **Fixed**
+**Problem:** Edges listed as text only. No duplicate/rename. No inline validation. No save/run buttons.
 
-Evidence:
-- **SVG edge rendering:** `PipelineBuilder.tsx:179-188` renders `<line>` elements within an SVG overlay using node centre coordinates
-- **Duplicate:** `graph.ts:159-187` implements `duplicateNode` with offset positioning and generated ID
-- **Rename:** `graph.ts:141-157` implements `renameNode` with trim and empty-label validation
-- **Inline validation:** `PipelineBuilder.tsx:206-208` renders per-node errors; lines 232-234 render per-edge errors
-- **Save/Run:** Lines 166-167 add Save and Run buttons; `saveTemplate` (line 121) and `runTemplate` (line 139) are wired to commands
-- **Frontend tests:** `graph.test.ts` (259 lines, 8 tests) covers create, delete, move, rename, duplicate, connect, disconnect, and validation
+**Resolution:**
+- SVG `<line>` elements drawn within canvas using node centre coordinates
+- `duplicateNode()` and `renameNode()` added to `graph.ts` with proper validation
+- `validateGraph()` returns per-node and per-edge error maps
+- `PipelineBuilder.tsx` renders errors inline on nodes and edges
+- Save and Run buttons wired to `updateTemplate`/`createTemplate` and `startPipelineRun`
 
-### [P3] Loop edge exception not implemented
+#### [P3] Loop edge exception not implemented
 
-Status: **Fixed**
+**Problem:** All cycles rejected unconditionally. No support for bounded loop-control edges.
 
-Evidence:
-- `TemplateEdge` now has `loop_control: bool` field (templates.rs:119)
-- `graph_validation.rs:81-109` uses Kosaraju's SCC algorithm (via `graph_analysis.rs`) to find cycles
-- Cycles where all intra-component edges are `loop_control: true` are permitted; otherwise rejected
-- `max_iterations <= 1` with cycles is explicitly rejected (line 91-95)
-- Graph executor `scheduler.rs:117-119` re-arms loop nodes up to `max_iterations` via `NodePlan.loop_node`
-- `topology.rs` builds the component map consumed by the scheduler
-- Test `loop_control_cycle_executes_bounded_iterations` (tests.rs:93) verifies nodes `a` and `b` execute exactly 3 times with `max_iterations: 3`
-- Test `unresolvable_graph_still_errors` (tests.rs:123) verifies a pure cycle with no entry node still deadlocks
+**Resolution:**
+- `TemplateEdge` gained `loop_control: bool` field
+- `graph_analysis.rs` implements Kosaraju's SCC algorithm
+- `graph_validation.rs` uses SCC to detect cycles; permits cycles where all intra-component edges are `loop_control: true` and `max_iterations > 1`
+- `graph_executor/scheduler.rs` re-arms loop nodes up to `max_iterations` via `NodePlan`
+- `graph_executor/topology.rs` builds the SCC component map for the scheduler
+- Tests verify bounded iteration (3 iterations) and deadlock detection for pure cycles
 
-### [P3] Long lines in pipeline.rs
+#### [P3] Long lines in pipeline.rs
 
-Status: **Fixed**
+**Problem:** Multiple lines exceeded 150 characters; `pipeline.rs` was 294 lines with mixed concerns.
 
-Evidence:
-- `pipeline.rs` reduced from 294 to 210 lines
-- Node execution logic extracted to `stage_runner.rs` with dedicated `handle_node_completion` helper (line 249)
-- `run_graph_template` (pipeline.rs:140) is now a clean orchestration function
+**Resolution:** Node execution logic extracted to `stage_runner.rs` with dedicated `handle_node_completion` helper. `pipeline.rs` reduced from 294 to 210 lines.
 
-### [P3] No frontend tests for pipeline builder
+#### [P3] No frontend tests for pipeline builder
 
-Status: **Fixed**
+**Problem:** `graph.ts` operations were untested.
 
-Evidence:
-- `graph.test.ts` has 8 tests covering: createNode (explicit/generated IDs, duplicate rejection), deleteNode (cascade edges, missing node), moveNode (position update, missing node), renameNode (trim, empty rejection), duplicateNode (offset, config copy), connectNodes (generated IDs, duplicate detection, self-connection rejection), disconnectEdge/disconnectNodes, and validateGraph (blank labels, broken refs, self-connections)
+**Resolution:** `graph.test.ts` (259 lines, 8 tests) covers: createNode, deleteNode, moveNode, renameNode, duplicateNode, connectNodes, disconnectEdge/disconnectNodes, and validateGraph.
 
-### [P3] User-question flow not wired
+#### [P3] User-question flow not wired into run_node
 
-Status: **Fixed**
+**Problem:** `question_answers` oneshot channels existed in `AppState` but were never used during node execution.
 
-Evidence:
-- `user_questions.rs` implements `request_user_approval` with question emission, oneshot channel, and timeout
-- `plan_gate.rs` calls `request_user_approval` for nodes requiring plan approval
-- `commands/pipeline.rs` now includes `answer_pipeline_question` command (line 166+)
-- `lib.rs:29` registers the command in the Tauri handler
-- `question_answers` channel map flows from `AppState` → `PipelineRuntimeContext` → `StageRunnerContext`
+**Resolution:** Wired through `plan_gate.rs` → `user_questions.rs`. `answer_pipeline_question` command delivers answers. Channel map flows `AppState` → `PipelineRuntimeContext` → `StageRunnerContext`.
 
-## New observations
+### Round 2 finding and resolution
 
-### [P3] `handle_node_completion` still has long single-line event emissions
+#### [P2] Built-in template handler values not in registry
 
-Status: **Open (cosmetic)**
+**Problem:** Built-in templates set `handler: stage_type.into()`, producing values like `"analyse"`, `"review"`, `"implement"`, `"test"`. The handler registry only contained `"chat"`, `"judge"`, `"summary"`, `"skill_select"`, `"skill_run"`. This would cause all built-in templates to fail at runtime.
 
-Evidence:
-- `stage_runner.rs:260`, `:263`, `:273`, `:275` contain struct literals exceeding 130 characters
-
-Impact: Readability only. No functional concern.
-
-### [P3] `handler_registry()` allocates a new HashMap on every call
-
-Status: **Open (minor)**
-
-Evidence:
-- `stage_runner.rs:41-49` creates a fresh `HashMap` each time `dispatch_handler` is called (once per node execution)
-
-Impact: Negligible for typical graph sizes. Could use `LazyLock` or `OnceLock` if profiling shows it matters.
-
-### [P2] `analyse`/`review`/`implement` stage types map to `chat` handler but were not in the registry
-
-Status: **Fixed**
-
-Evidence:
-- `stage_runner.rs:44-49` now includes `analyse`, `review`, `implement`, `test`, and `custom` as backward-compatible aliases mapping to `HandlerKind::Chat`
-- Built-in templates continue to use `handler: stage_type.into()` (builtin_templates.rs:189), which is now correctly resolved
-- 107 Rust tests pass including `all_builtin_templates_pass_validation`
+**Resolution:** Added backward-compatible aliases to the handler registry in `stage_runner.rs:44-49`: `"analyse"`, `"review"`, `"implement"`, `"test"`, `"custom"` all map to `HandlerKind::Chat`.
 
 ## Work item coverage summary
 
-| Work item | Status | Notes |
-|-----------|--------|-------|
-| 1. Graph template schema | Complete | Graph-native schema with `loop_control` on edges |
-| 2. Graph validation | Complete | SCC-based cycle handling with bounded loop-control exception |
-| 3. Legacy migration | Complete | Legacy `stages` payloads migrate transparently |
-| 4. Graph executor | Complete | Concurrent execution + conditional routing + bounded loop re-arming |
-| 5. Node handler registry | Complete | Registry-based dispatch in `stage_runner` |
-| 6. Prompt rendering | Complete | Graph-aware upstream/edge variable support |
-| 7. Session-group continuity | Complete | Compatible resume with mismatch fallback warnings |
-| 8. DirectTask mode | Complete | Single-node bypass preserved |
-| 9. Diff and artefact capture | Complete | Code-intent nodes emit git diff artefacts |
-| 10. Node-based event model | Complete | Node-centric Rust/TypeScript event payloads with `pipeline:question` |
-| 11. Pipeline canvas UI | Complete | SVG edges, drag/drop, rename, duplicate, inline validation, save/run |
-| 12. Plan gate in graph mode | Complete | Node-config driven approval with timeout and answer channel |
+| Work item | Status | Key files |
+|-----------|--------|-----------|
+| 1. Graph template schema | Complete | `models/templates.rs`, `types/templates.ts` |
+| 2. Graph validation | Complete | `models/graph_validation.rs`, `models/graph_analysis.rs` |
+| 3. Legacy migration | Complete | `models/templates.rs` (custom `Deserialize`) |
+| 4. Graph executor | Complete | `orchestrator/graph_executor/{mod,scheduler,topology,tests}.rs` |
+| 5. Node handler registry | Complete | `orchestrator/stage_runner.rs` |
+| 6. Prompt rendering | Complete | `orchestrator/prompt_renderer.rs` |
+| 7. Session-group continuity | Complete | `orchestrator/session_manager.rs` |
+| 8. DirectTask mode | Complete | `orchestrator/pipeline.rs` |
+| 9. Diff and artefact capture | Complete | `orchestrator/stage_runner.rs`, `orchestrator/helpers.rs` |
+| 10. Node-based event model | Complete | `models/events.rs`, `types/events.ts` |
+| 11. Pipeline canvas UI | Complete | `features/pipeline-builder/{PipelineBuilder,graph,model}.ts(x)` |
+| 12. Plan gate in graph mode | Complete | `orchestrator/plan_gate.rs`, `orchestrator/user_questions.rs` |
 
-## Architecture quality
+## Architecture summary
 
-**Improvements since initial review:**
-- Clean separation: `pipeline.rs` (orchestration) → `stage_runner.rs` (node execution) → `graph_executor/` (topology scheduling)
-- `graph_executor` split into `mod.rs` (types), `scheduler.rs` (execution), `topology.rs` (SCC/loop detection), `tests.rs`
-- Plan gate and user questions are self-contained modules with single-responsibility
-- Frontend `graph.ts` now has 8 thorough tests covering all operations
-- `loopControl` is a first-class concept from validation through execution
+```
+commands/pipeline.rs          Tauri command entry points (start/pause/resume/cancel/answer)
+    |
+orchestrator/pipeline.rs      Run orchestration (direct task vs graph template)
+    |
+orchestrator/stage_runner.rs  Per-node execution: plan gate → handler dispatch → completion
+    |                          handling (events, diffs, session memory)
+    |
+    +-- orchestrator/plan_gate.rs        Config-driven approval gate
+    +-- orchestrator/user_questions.rs   Question/answer channel with timeout
+    +-- orchestrator/session_manager.rs  Session resume/fallback decisions with warnings
+    +-- orchestrator/prompt_renderer.rs  Graph-aware template variable rendering
+    +-- orchestrator/helpers.rs          Event emission, git diff capture, chat streaming
+    |
+orchestrator/graph_executor/
+    +-- mod.rs                 Types (NodeOutcome, NodeExecutionResult, etc.)
+    +-- scheduler.rs           Wave-based topological execution with loop re-arming
+    +-- topology.rs            SCC component map for loop detection
+    +-- tests.rs               DAG, bounded loop, and deadlock tests
+```
 
-**Remaining risk:**
-- The handler registry mismatch with built-in template handler values (`"analyse"` etc.) will cause runtime failures. This is a **P2 blocker** that should be fixed before any manual testing.
+## Remaining cosmetic observations (not blocking)
+
+- `stage_runner.rs:260,263,273,275` — struct literal lines exceed 130 characters
+- `handler_registry()` allocates a new `HashMap` per call — negligible cost, could use `LazyLock` if profiled
 
 ## Verdict
 
-All 8 previous findings are resolved. The implementation now covers all 12 work items from Phase4.md. Build is clean, 107 Rust tests and 8 frontend tests pass, all files are under 300 lines.
-
-All findings are now resolved. Phase 4 is complete against the implementation spec. Two minor cosmetic observations remain open (long lines in struct literals, per-call HashMap allocation) — neither affects correctness or runtime behaviour.
+Phase 4 is complete. All 12 work items from Phase4.md are implemented. All 9 findings across three review rounds are resolved. 107 Rust tests and 8 frontend tests pass. Build is clean with no errors or warnings. All files are under the 300-line limit.

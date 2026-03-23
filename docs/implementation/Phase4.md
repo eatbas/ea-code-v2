@@ -1,5 +1,7 @@
 # Phase 4 - Graph Orchestrator and Visual Pipeline Builder
 
+**Status:** Completed (2026-03-23)
+
 ## Objective
 
 Switch from an ordered stage list to a graph-driven orchestrator where users create stage boxes in the UI via drag-and-drop and wire execution paths manually.
@@ -13,7 +15,7 @@ Switch from an ordered stage list to a graph-driven orchestrator where users cre
 - Keep session-group continuity across compatible node transitions.
 - Emit dynamic node-based events for timeline and logs.
 
-## Implementation status (2026-03-23)
+## Implementation status (completed on 2026-03-23)
 
 Build and checks:
 - `cargo check` passes.
@@ -29,7 +31,7 @@ Work item coverage:
 | 2. Graph validation | Complete | SCC-based validation allows only explicit `loop_control` cycles when `max_iterations > 1` |
 | 3. Legacy migration | Complete | Legacy `stages` payloads auto-migrate on load |
 | 4. Graph executor | Complete | Fan-out/fan-in wave execution, conditional routing, and bounded loop-control iteration execution implemented |
-| 5. Node handler registry | Complete | Handler dispatch registry implemented (`chat`, `judge`, `summary`, `skill_select`, `skill_run`) |
+| 5. Node handler registry | Complete | Handler dispatch registry implemented with compatibility aliases for built-in/legacy handlers (`analyse`, `review`, `implement`, `test`, `custom` -> `chat`) |
 | 6. Prompt rendering | Complete | Graph-aware prompt variables implemented |
 | 7. Session-group continuity | Complete | Resume/new logic with mismatch warning emission implemented |
 | 8. DirectTask mode | Complete | Direct single-node bypass implemented |
@@ -42,6 +44,7 @@ Phase 4 closeout:
 - All planned work items are implemented.
 - Loop-control cycles are now both validated and executed with bounded re-arming tied to `max_iterations`.
 - Frontend graph-operation unit tests are in place under `src/features/pipeline-builder/graph.test.ts`.
+- Built-in and migrated templates are runtime-compatible through stage-type handler aliases in the registry.
 
 ## Contradictions resolved from previous draft
 
@@ -121,6 +124,7 @@ No hardcoded stage order in the executor path.
 
 - Replace fixed stage-dispatch logic with a handler registry keyed by `node.handler`.
 - Built-in handlers can include `chat`, `judge`, `summary`, `skill_select`, `skill_run`.
+- Compatibility aliases map stage-type handlers (`analyse`, `review`, `implement`, `test`, `custom`) to `chat`.
 - Executor treats all nodes uniformly and only calls the selected handler.
 
 This removes hardcoded sequence assumptions while still supporting built-in capabilities.
@@ -226,7 +230,8 @@ UI requirements:
 ## Testing
 
 - **Graph round-trip:** Create 5 nodes and custom edges in UI, save/reload, verify structure and `ui_position` persist.
-- **Cycle rejection:** Build `A -> B -> A`; verify save is blocked with clear error.
+- **Cycle rejection:** Build `A -> B -> A` without loop-control edges; verify save is blocked with clear error.
+- **Bounded loop-control cycle:** Build a loop-control cycle and verify execution re-arms only up to `max_iterations`.
 - **Fan-out:** One node wired to two child nodes; verify concurrent run.
 - **Fan-in:** Two parent nodes wired into one node; verify child starts after both complete.
 - **Conditional edges:** Judge/output node routes correctly on success/failure conditions.
@@ -268,6 +273,6 @@ UI requirements:
 - Run summaries include node/edge metadata and transition history.
 - DirectTask remains functional end-to-end.
 
-## Estimated duration
+## Completion
 
-2 weeks
+Completed in approximately 2 weeks.
