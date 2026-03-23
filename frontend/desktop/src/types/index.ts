@@ -25,3 +25,11 @@ export type {
 export type { ChatMessage, RunSummaryFile } from "./storage";
 
 export type { ActiveView } from "./navigation";
+
+export type {
+  HealthResponse,
+  ProviderInfo,
+  DroneInfo,
+  CliVersionInfo,
+  HiveApiStatus,
+} from "./hive";
