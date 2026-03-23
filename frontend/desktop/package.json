@@ -1,0 +1,12 @@
+{
+  "name": "ea-code-desktop",
+  "private": true,
+  "version": "0.6.0",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "~5.8.0"
+  }
+}

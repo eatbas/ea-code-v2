@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Tauri
+frontend/desktop/src-tauri/target/
+frontend/desktop/src-tauri/WixTools/
+frontend/desktop/src-tauri/Frameworks/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE / Editor
+.vscode/*
+!.vscode/extensions.json
+!.vscode/tasks.json
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+
+# TypeScript
+*.tsbuildinfo
+
+# Testing
+coverage/
+
+# AI / CLI agent artefacts
+.claude/
+.codex/
+.gemini/
+.opencode/
