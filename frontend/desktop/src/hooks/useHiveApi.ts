@@ -1,4 +1,5 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
   HealthResponse,
   ProviderInfo,
@@ -12,6 +13,30 @@ export function useHiveApi() {
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [drones, setDrones] = useState<DroneInfo[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  // Listen for backend health events
+  useEffect(() => {
+    const unlisteners: UnlistenFn[] = [];
+
+    listen<HealthResponse>("hive-api:ready", () => {
+      setStatus("ready");
+      setError(null);
+    }).then((fn) => unlisteners.push(fn));
+
+    listen<string>("hive-api:disconnected", (event) => {
+      setStatus("error");
+      setError(event.payload ?? "hive-api disconnected");
+    }).then((fn) => unlisteners.push(fn));
+
+    listen<string>("hive-api:reconnected", () => {
+      setStatus("ready");
+      setError(null);
+    }).then((fn) => unlisteners.push(fn));
+
+    return () => {
+      unlisteners.forEach((unlisten) => unlisten());
+    };
+  }, []);
 
   const initClient = useCallback(async (host: string, port: number) => {
     try {
@@ -68,6 +93,27 @@ export function useHiveApi() {
     }
   }, []);
 
+  const startMonitor = useCallback(
+    async (pollIntervalSecs?: number) => {
+      try {
+        await invoke("start_hive_monitor", {
+          pollIntervalSecs: pollIntervalSecs ?? 60,
+        });
+      } catch (e) {
+        setError(String(e));
+      }
+    },
+    [],
+  );
+
+  const stopMonitor = useCallback(async () => {
+    try {
+      await invoke("stop_hive_monitor");
+    } catch (e) {
+      setError(String(e));
+    }
+  }, []);
+
   return {
     status,
     providers,
@@ -78,5 +124,7 @@ export function useHiveApi() {
     waitReady,
     refreshProviders,
     refreshDrones,
+    startMonitor,
+    stopMonitor,
   };
 }

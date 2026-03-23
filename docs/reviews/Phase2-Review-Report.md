@@ -1,96 +1,84 @@
-﻿# Phase 2 Review Report (Updated)
+﻿# Phase 2 Review Report (Updated Recheck)
 
 **Date:** 2026-03-23  
 **Reviewer:** Codex  
-**Scope:** Re-validation of Phase 2 fixes (`hive_client`, `commands/hive_api`, frontend hive hooks/types)
+**Scope:** Re-validation after latest Phase 2 fixes
 
-## 0. Executive Status
-
-| Item | Status | Notes |
-|---|---|---|
-| Runtime invoke wiring | Fixed | `invoke.ts` now uses `@tauri-apps/api/core` |
-| Frontend/backend hive DTO alignment | Fixed | Health/provider/version shapes now match current Rust models |
-| Lifecycle start/stop command gap | Fixed | `start_hive_api`, `stop_hive_api`, `hive_api_process_running` added |
-| UTF-8 SSE split-chunk handling | Fixed | `Utf8Buffer` added with tests |
-| Version endpoint contract consistency | **Open** | Rust paths differ from documented `/v1/cli-versions*` spec |
-| `hive-api:disconnected` crash signal | **Open** | `hive-api:ready` exists, disconnect emit path not found |
-
-## 1. Re-Verification Run
+## 1. Verification Run
 
 Commands executed:
 - `cd frontend/desktop/src-tauri && cargo test`
 - `cd frontend/desktop && npx tsc --noEmit`
 
 Results:
-- `cargo test`: **PASS** (69/69)
+- `cargo test`: **PASS** (69 passed, 0 failed)
 - `npx tsc --noEmit`: **PASS**
 
-## 2. Previously Reported Findings - Recheck
+Note:
+- `cargo test` reports two compile warnings for unused imports in `hive_monitor.rs` (`AtomicBool`, `Arc`).
 
-### P1 (previous): Frontend invoke hard-fail stub
+## 2. Findings (Ordered by Severity)
 
-**Status:** Fixed  
-**Evidence:** [invoke.ts](D:/Github/ea-code-v2/frontend/desktop/src/lib/invoke.ts)
+### [P2] Health monitor is implemented but not wired into runtime flow
 
-### P1 (previous): Frontend-backend DTO mismatch
+Status: **Open (integration gap)**
 
-**Status:** Fixed for current code contract  
-**Evidence:**
-- [health.rs](D:/Github/ea-code-v2/frontend/desktop/src-tauri/src/hive_client/health.rs)
-- [providers.rs](D:/Github/ea-code-v2/frontend/desktop/src-tauri/src/hive_client/providers.rs)
-- [versions.rs](D:/Github/ea-code-v2/frontend/desktop/src-tauri/src/hive_client/versions.rs)
-- [hive.ts](D:/Github/ea-code-v2/frontend/desktop/src/types/hive.ts)
-
-### P1 (previous): Missing lifecycle commands
-
-**Status:** Fixed  
-**Evidence:**
-- [hive_api.rs](D:/Github/ea-code-v2/frontend/desktop/src-tauri/src/commands/hive_api.rs)
-- [lib.rs](D:/Github/ea-code-v2/frontend/desktop/src-tauri/src/lib.rs)
-
-### P2 (previous): SSE UTF-8 split-chunk failure risk
-
-**Status:** Fixed  
-**Evidence:** [streaming.rs](D:/Github/ea-code-v2/frontend/desktop/src-tauri/src/hive_client/streaming.rs)
-
-## 3. Remaining Findings
-
-### [P2] CLI version endpoint shapes still diverge from repository Phase 2 spec/docs
-
-- **Code currently uses:**
-  - `GET /v1/cli/versions`
-  - `GET /v1/cli/versions/{provider}`
-  - `POST /v1/cli/update/{provider}`
-  - See [versions.rs](D:/Github/ea-code-v2/frontend/desktop/src-tauri/src/hive_client/versions.rs)
-- **Docs still describe:**
-  - `/v1/cli-versions`
-  - `/v1/cli-versions/{provider}/check`
-  - `/v1/cli-versions/{provider}/update`
-  - See [Phase2.md](D:/Github/ea-code-v2/docs/implementation/Phase2.md) and [ea-code-v2.md](D:/Github/ea-code-v2/docs/ea-code-v2.md)
+Evidence:
+- Monitor commands exist and are registered:
+  - `frontend/desktop/src-tauri/src/commands/hive_monitor.rs`
+  - `frontend/desktop/src-tauri/src/lib.rs`
+- No frontend call was found to start the monitor (`start_hive_monitor`) in:
+  - `frontend/desktop/src/hooks/useHiveApi.ts`
+  - `frontend/desktop/src/hooks/useHiveVersions.ts`
+- No frontend listener usage was found for:
+  - `hive-api:disconnected`
+  - `hive-api:reconnected`
 
 Impact:
-- If hive-api follows the documented contract, these client calls can fail with 404.
+- Runtime disconnect/reconnect events are available in backend code but will not fire in app usage unless monitor start/stop is invoked and listeners are attached.
 
-### [P2] No `hive-api:disconnected` emit path found for runtime crash detection
+### [P3] One repository document still carries legacy CLI version endpoint names
 
-- `hive-api:ready` is emitted in [hive_api.rs](D:/Github/ea-code-v2/frontend/desktop/src-tauri/src/commands/hive_api.rs)
-- No corresponding `hive-api:disconnected` emission path located.
+Status: **Open (documentation debt)**
+
+Evidence:
+- Phase 2 implementation doc now matches code paths:
+  - `docs/implementation/Phase2.md` (`/v1/cli/versions`, `/v1/cli/update/{provider}`)
+- Legacy endpoint naming remains in:
+  - `docs/ea-code-v2.md` (`/v1/cli-versions*`)
 
 Impact:
-- Frontend cannot react to runtime disconnects in the way Phase 2 plan describes.
+- Can create confusion for future implementation and review work.
 
-## 4. Coverage Check (Current)
+### [P3] Minor Rust warnings in monitor module
+
+Status: **Open (non-blocking)**
+
+Evidence:
+- `frontend/desktop/src-tauri/src/commands/hive_monitor.rs` has unused imports (`AtomicBool`, `Arc`).
+
+Impact:
+- No functional break, but leaves avoidable warnings in verification output.
+
+## 3. Recheck of Previously Open Items
+
+| Previously Open Item | Current Status | Notes |
+|---|---|---|
+| Version endpoint contract mismatch | **Fixed (for Phase 2 docs + code)** | Code and `docs/implementation/Phase2.md` now align on `/v1/cli/versions` and `/v1/cli/update/{provider}` |
+| Missing `hive-api:disconnected` emit path | **Fixed in backend** | Emit path now exists in `commands/hive_monitor.rs`; runtime wiring remains open (see P2 above) |
+
+## 4. Coverage Check for Critical Parts
 
 | Area | Status | Notes |
 |---|---|---|
-| SSE parser and stream edge cases | Covered | Extensive unit tests, including split UTF-8 chunks |
-| Error mapping tests | Covered | `hive_client/error.rs` tests |
-| Lifecycle primitive tests | Covered | `hive_client/lifecycle.rs` tests |
-| Command-level tests (`commands/hive_api.rs`) | Not covered | No direct tests for command-state behavior |
-| Endpoint contract integration tests | Not covered | No mock-server verification of actual path/method contracts |
-| Frontend hook tests (`useHiveApi`, `useHiveVersions`) | Not covered | No tests validating runtime command wiring/error transitions |
+| SSE parser and split UTF-8 handling | Covered | `hive_client/sse.rs` and `hive_client/streaming.rs` tests |
+| Error mapping | Covered | `hive_client/error.rs` tests |
+| Lifecycle primitives | Covered | `hive_client/lifecycle.rs` tests |
+| Command-level behaviour (`commands/hive_api.rs`, `commands/hive_monitor.rs`) | Not covered | No direct command-state/unit tests |
+| Endpoint contract integration (HTTP method/path assertions) | Not covered | No mock-server integration tests |
+| Frontend hook runtime wiring (`useHiveApi`, monitor events) | Not covered | No tests for event subscription and recovery transitions |
 
 ## 5. Conclusion
 
-Phase 2 implementation quality has improved significantly and most critical blockers are fixed.  
-Two contract/runtime-alignment items remain open (version endpoint contract + disconnect event flow). After those are resolved, Phase 2 can be considered fully complete.
+Most previously reported Phase 2 blockers are now resolved, and verification checks pass.  
+Phase 2 still has one meaningful runtime integration gap (health monitor not wired into active frontend flow), plus minor documentation/warning clean-up items.
