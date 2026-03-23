@@ -4,8 +4,10 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct StageEndStatus {
-    pub stage_id: String,
-    pub label: String,
+    #[serde(alias = "stageId")]
+    pub node_id: String,
+    #[serde(alias = "label")]
+    pub node_label: String,
     /// "completed" | "failed" | "cancelled" | "skipped"
     pub status: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -43,30 +45,32 @@ pub enum RunEvent {
     },
     #[serde(rename = "stage_started")]
     StageStarted {
-        #[serde(rename = "stageId")]
-        stage_id: String,
-        label: String,
+        #[serde(rename = "nodeId", alias = "stageId")]
+        node_id: String,
+        #[serde(rename = "nodeLabel", alias = "label")]
+        node_label: String,
         timestamp: String,
     },
     #[serde(rename = "stage_log")]
     StageLog {
-        #[serde(rename = "stageId")]
-        stage_id: String,
+        #[serde(rename = "nodeId", alias = "stageId")]
+        node_id: String,
         text: String,
         timestamp: String,
     },
     #[serde(rename = "stage_ended")]
     StageEnded {
-        #[serde(rename = "stageId")]
-        stage_id: String,
-        label: String,
+        #[serde(rename = "nodeId", alias = "stageId")]
+        node_id: String,
+        #[serde(rename = "nodeLabel", alias = "label")]
+        node_label: String,
         status: StageEndStatus,
         timestamp: String,
     },
     #[serde(rename = "artifact")]
     Artifact {
-        #[serde(rename = "stageId")]
-        stage_id: String,
+        #[serde(rename = "nodeId", alias = "stageId")]
+        node_id: String,
         name: String,
         content: String,
         #[serde(rename = "artifactType")]
@@ -119,17 +123,19 @@ mod tests {
     #[test]
     fn run_event_tagged_enum_serialises_with_type_field() {
         let event = RunEvent::StageStarted {
-            stage_id: "s1".into(),
-            label: "Analyse".into(),
+            node_id: "n1".into(),
+            node_label: "Analyse".into(),
             timestamp: "2026-03-23T12:00:00Z".into(),
         };
         let json = serde_json::to_string(&event).unwrap();
         // Type tag is snake_case, field names are camelCase
         assert!(json.contains(r#""type":"stage_started""#));
-        assert!(json.contains(r#""stageId":"s1""#));
-        assert!(json.contains(r#""label":"Analyse""#));
+        assert!(json.contains(r#""nodeId":"n1""#));
+        assert!(json.contains(r#""nodeLabel":"Analyse""#));
         // Must NOT contain snake_case field names
         assert!(!json.contains("stage_id"));
+        assert!(!json.contains(r#""stageId":"#));
+        assert!(!json.contains(r#""label":"#));
     }
 
     #[test]
@@ -140,7 +146,7 @@ mod tests {
                 timestamp: "2026-03-23T12:00:00Z".into(),
             },
             RunEvent::StageLog {
-                stage_id: "s1".into(),
+                node_id: "n1".into(),
                 text: "Processing...".into(),
                 timestamp: "2026-03-23T12:00:01Z".into(),
             },
@@ -180,11 +186,11 @@ mod tests {
     #[test]
     fn stage_end_status_nested_in_event() {
         let event = RunEvent::StageEnded {
-            stage_id: "s1".into(),
-            label: "Review".into(),
+            node_id: "n1".into(),
+            node_label: "Review".into(),
             status: StageEndStatus {
-                stage_id: "s1".into(),
-                label: "Review".into(),
+                node_id: "n1".into(),
+                node_label: "Review".into(),
                 status: "completed".into(),
                 output: Some("LGTM".into()),
                 duration_ms: Some(12345),
@@ -196,6 +202,36 @@ mod tests {
         if let RunEvent::StageEnded { status, .. } = restored {
             assert_eq!(status.output, Some("LGTM".into()));
             assert_eq!(status.duration_ms, Some(12345));
+        } else {
+            panic!("Expected StageEnded variant");
+        }
+    }
+
+    #[test]
+    fn run_event_deserialises_legacy_stage_field_aliases() {
+        let legacy_json = r#"{
+            "type":"stage_ended",
+            "stageId":"legacy-stage-1",
+            "label":"Legacy Label",
+            "status":{
+                "stageId":"legacy-stage-1",
+                "label":"Legacy Label",
+                "status":"completed"
+            },
+            "timestamp":"2026-03-23T12:00:00Z"
+        }"#;
+
+        let event: RunEvent = serde_json::from_str(legacy_json).unwrap();
+        let canonical_json = serde_json::to_string(&event).unwrap();
+
+        assert!(canonical_json.contains(r#""nodeId":"legacy-stage-1""#));
+        assert!(canonical_json.contains(r#""nodeLabel":"Legacy Label""#));
+        assert!(!canonical_json.contains(r#""stageId":"#));
+        assert!(!canonical_json.contains(r#""label":"#));
+
+        if let RunEvent::StageEnded { status, .. } = event {
+            assert_eq!(status.node_id, "legacy-stage-1");
+            assert_eq!(status.node_label, "Legacy Label");
         } else {
             panic!("Expected StageEnded variant");
         }

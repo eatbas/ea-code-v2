@@ -1,15 +1,33 @@
 export type {
   PipelineTemplate,
-  StageDefinition,
+  StageNodeUiPosition,
+  StageExecutionIntent,
+  StageNodeDefinition,
+  StageEdgeDefinition,
   CreateTemplateRequest,
   UpdateTemplateRequest,
   CloneTemplateRequest,
 } from "./templates";
+export { StageEdgeCondition } from "./templates";
 
 export type { AppSettings } from "./settings";
 export { DEFAULT_SETTINGS } from "./settings";
 
-export type { PipelineStatus, StageStatus, JudgeVerdict } from "./pipeline";
+export { PIPELINE_RUN_COMMANDS } from "./pipeline";
+export type {
+  PipelineStatus,
+  StageStatus,
+  JudgeVerdict,
+  PipelineRunCommand,
+  StartPipelineRunPayload,
+  PausePipelineRunPayload,
+  ResumePipelineRunPayload,
+  CancelPipelineRunPayload,
+  AnswerPipelineQuestionPayload,
+  PipelineRunStateSnapshot,
+  StartPipelineRunResult,
+  PipelineRunControlResult,
+} from "./pipeline";
 
 export type { RunEvent, RunStatus, StageEndStatus } from "./events";
 export { PIPELINE_EVENTS } from "./events";

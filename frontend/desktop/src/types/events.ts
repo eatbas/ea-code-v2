@@ -11,8 +11,8 @@ export const PIPELINE_EVENTS = {
 export type RunStatus = "running" | "completed" | "failed" | "cancelled" | "paused";
 
 export interface StageEndStatus {
-  stageId: string;
-  label: string;
+  nodeId: string;
+  nodeLabel: string;
   status: string;
   output?: string;
   durationMs?: number;
@@ -20,10 +20,10 @@ export interface StageEndStatus {
 
 export type RunEvent =
   | { type: "run_started"; runId: string; timestamp: string }
-  | { type: "stage_started"; stageId: string; label: string; timestamp: string }
-  | { type: "stage_log"; stageId: string; text: string; timestamp: string }
-  | { type: "stage_ended"; stageId: string; label: string; status: StageEndStatus; timestamp: string }
-  | { type: "artifact"; stageId: string; name: string; content: string; artifactType: string; timestamp: string }
+  | { type: "stage_started"; nodeId: string; nodeLabel: string; timestamp: string }
+  | { type: "stage_log"; nodeId: string; text: string; timestamp: string }
+  | { type: "stage_ended"; nodeId: string; nodeLabel: string; status: StageEndStatus; timestamp: string }
+  | { type: "artifact"; nodeId: string; name: string; content: string; artifactType: string; timestamp: string }
   | { type: "session_ref"; sessionGroup: string; providerSessionRef: string; timestamp: string }
   | { type: "question"; questionId: string; questionText: string; timestamp: string }
   | { type: "answer"; questionId: string; answerText: string; timestamp: string }

@@ -1,5 +1,6 @@
 pub mod hive_api;
 pub mod hive_monitor;
+pub mod pipeline;
 pub mod templates;
 
 use std::collections::HashMap;
@@ -32,6 +33,12 @@ pub struct AppState {
     /// Currently active job_id (for cancellation).
     pub active_job_id: Arc<Mutex<Option<String>>>,
 
+    /// Currently active run_id.
+    pub active_run_id: Arc<Mutex<Option<String>>>,
+
+    /// Ensures a single active pipeline run at a time.
+    pub run_active: Arc<AtomicBool>,
+
     /// Background health monitor active flag.
     pub monitor_active: Arc<AtomicBool>,
 }
@@ -45,6 +52,8 @@ impl AppState {
             hive_client: Arc::new(Mutex::new(None)),
             hive_process: Arc::new(Mutex::new(None)),
             active_job_id: Arc::new(Mutex::new(None)),
+            active_run_id: Arc::new(Mutex::new(None)),
+            run_active: Arc::new(AtomicBool::new(false)),
             monitor_active: Arc::new(AtomicBool::new(false)),
         }
     }

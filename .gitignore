@@ -9,6 +9,7 @@ build/
 frontend/desktop/src-tauri/target/
 frontend/desktop/src-tauri/WixTools/
 frontend/desktop/src-tauri/Frameworks/
+frontend/desktop/src-tauri/gen/schemas/
 
 # Environment
 .env

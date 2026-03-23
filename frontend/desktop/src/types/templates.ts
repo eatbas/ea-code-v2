@@ -5,23 +5,47 @@ export interface PipelineTemplate {
   isBuiltin: boolean;
   maxIterations: number;
   stopOnFirstPass: boolean;
-  stages: StageDefinition[];
+  nodes: StageNodeDefinition[];
+  edges: StageEdgeDefinition[];
   createdAt: string;
   updatedAt: string;
 }
 
-export interface StageDefinition {
+export interface StageNodeUiPosition {
+  x: number;
+  y: number;
+}
+
+export type StageExecutionIntent = "text" | "code";
+
+export interface StageNodeDefinition {
   id: string;
   label: string;
   stageType: string;
-  position: number;
+  handler: string;
+  config?: Record<string, unknown> | null;
   provider: string;
   model: string;
   sessionGroup: string;
-  parallelGroup?: string | null;
   promptTemplate: string;
   enabled: boolean;
-  executionIntent: "text" | "code";
+  executionIntent: StageExecutionIntent;
+  uiPosition: StageNodeUiPosition;
+}
+
+export enum StageEdgeCondition {
+  Always = "always",
+  OnSuccess = "on_success",
+  OnFailure = "on_failure",
+}
+
+export interface StageEdgeDefinition {
+  id: string;
+  sourceNodeId: string;
+  targetNodeId: string;
+  condition: StageEdgeCondition;
+  inputKey?: string | null;
+  loopControl: boolean;
 }
 
 export interface CreateTemplateRequest {
@@ -29,7 +53,8 @@ export interface CreateTemplateRequest {
   description: string;
   maxIterations: number;
   stopOnFirstPass: boolean;
-  stages: StageDefinition[];
+  nodes: StageNodeDefinition[];
+  edges: StageEdgeDefinition[];
 }
 
 export interface UpdateTemplateRequest {
@@ -37,7 +62,8 @@ export interface UpdateTemplateRequest {
   description: string;
   maxIterations: number;
   stopOnFirstPass: boolean;
-  stages: StageDefinition[];
+  nodes: StageNodeDefinition[];
+  edges: StageEdgeDefinition[];
 }
 
 export interface CloneTemplateRequest {

@@ -1,6 +1,7 @@
 pub mod commands;
 pub mod hive_client;
 pub mod models;
+pub mod orchestrator;
 pub mod prompts;
 pub mod storage;
 
@@ -21,6 +22,11 @@ pub fn run() {
             commands::hive_api::hive_api_process_running,
             commands::hive_monitor::start_hive_monitor,
             commands::hive_monitor::stop_hive_monitor,
+            commands::pipeline::start_pipeline_run,
+            commands::pipeline::pause_pipeline_run,
+            commands::pipeline::resume_pipeline_run,
+            commands::pipeline::cancel_pipeline_run,
+            commands::pipeline::answer_pipeline_question,
             commands::templates::list_templates,
             commands::templates::get_template,
             commands::templates::create_template,
