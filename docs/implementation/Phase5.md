@@ -13,6 +13,51 @@ Deliver the v2 user experience: pipeline template builder, dynamic run visualisa
 - Add hive-api status view.
 - Add pipeline selector to home view.
 
+## Implementation status (updated 23 March 2026, pass 3)
+
+### Completed
+
+- **Item 1 (State management architecture):** `AppContext`, `TemplateContext`, and `PipelineContext` are implemented and provider-wired in `App.tsx`.
+- **Item 2 (ActiveView + router):** router uses context and all Phase 5 views are routed without prop drilling.
+- **Item 3 (New hooks):** `usePipelineExecution` and upgraded `useHiveApi` are implemented and integrated into runtime views.
+- **Item 4 (Pipeline selector on IdleView):** selector, template description, quick-access template shortcuts, edit/browse actions, and default selection via `settings.defaultPipelineId` are implemented.
+- **Item 5 (Pipeline Gallery):** built-in and user template sections with use/clone/edit/delete/duplicate actions are implemented.
+- **Item 6 (Pipeline Builder view):** two-panel template + stage editor implemented, including:
+  - stage reorder via drag-and-drop and move controls,
+  - session group indicators and visual session breaks,
+  - simple/advanced session-group modes,
+  - provider/model selectors driven by `useHiveApi().providers`,
+  - enabled toggle, delete action, add-stage action,
+  - save and delete pipeline actions.
+- **Item 7 (Prompt editor modal):** `PromptEditorModal.tsx` implemented with variable chips, enhance action, before/after diff, and accept/reject flow.
+- **Item 8 (Dynamic ChatView):** dynamic stage cards from template, session-group tags, streamed logs, code diff viewer, and iteration/progress indicators implemented.
+- **Item 9 (Dynamic RunTimeline):** dynamic stage names, session-group colouring, adaptive compact/expanded layouts, and iteration-aware rendering implemented.
+- **Item 10 (hive-api Status view):** status, providers, drone inventory, start/stop/restart controls, CLI versions, and error log implemented.
+- **Workflow alignment update:** provider/model selection is now driven by hive-api surfaces (`HiveApiStatusView` + builder provider/model selectors). Legacy "pick agents in Settings/CLI Setup" workflow is not part of v2 Phase 5.
+- **Item 11 (Sidebar updates):** pipelines and hive-api entries added; sessions/skills/mcp/settings navigation entries present.
+
+### Deferred / N/A in this repo snapshot
+
+- **Item 12 (remove deprecated components/hooks):**
+  - `AgentsView/`, `CliSetupView/`, `useCliHealth`, and `useCliVersions` were already absent in this trimmed v2 frontend snapshot.
+  - Equivalent migration is complete by routing to `PipelineBuilderView` and `HiveApiStatusView`.
+- **Out of Phase 5 scope for this pass:** full "feature parity" rewiring of legacy Sessions/Settings screens beyond routed presence remains deferred.
+
+### Validation status
+
+- Completed:
+  - `npm run typecheck` (`tsc --noEmit`) passes.
+  - `npm test` (`vitest`) passes: `3` files, `19` tests.
+  - `cargo check --all-targets --all-features` passes.
+  - `cargo test --all-targets --all-features` passes: `107` tests.
+- Pending before formal close-out:
+  - Execute full manual Phase 5 test matrix below (builder interaction walkthroughs, multi-template execution checks, session-group behaviour verification, and desktop layout regression pass).
+
+### Exit criteria status
+
+- **Mostly complete in code:** architecture migration and Phase 5 surfaces are implemented.
+- **Remaining for final sign-off:** run and document manual usability/regression verification for all scenarios in the Testing section.
+
 ## Work items
 
 ### 1. State management architecture
@@ -327,6 +372,3 @@ Mark for removal (actual deletion in Phase 6):
 ## Estimated duration
 
 1.5 to 2 weeks
-
-
-

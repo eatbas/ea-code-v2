@@ -9,6 +9,7 @@ export interface AppSettings {
   agentMaxTurns: number;
   hiveApiHost: string;
   hiveApiPort: number;
+  hiveApiEntryPath: string;
   defaultPipelineId: string;
   autoStartHiveApi: boolean;
   settingsVersion: number;
@@ -25,6 +26,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   agentMaxTurns: 25,
   hiveApiHost: "127.0.0.1",
   hiveApiPort: 8000,
+  hiveApiEntryPath: "",
   defaultPipelineId: "full-review-loop",
   autoStartHiveApi: true,
   settingsVersion: 2,

@@ -30,4 +30,4 @@ export interface CliVersionInfo {
   cliFound: boolean;
 }
 
-export type HiveApiStatus = "disconnected" | "connecting" | "ready" | "error";
+export type HiveApiStatus = "starting" | "ready" | "disconnected" | "error";

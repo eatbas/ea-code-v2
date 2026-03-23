@@ -29,7 +29,22 @@ export type {
   PipelineRunControlResult,
 } from "./pipeline";
 
-export type { RunEvent, RunStatus, StageEndStatus } from "./events";
+export type {
+  PipelineMode,
+  PipelineStageLiveStatus,
+  PipelineTerminalStatus,
+  PipelineStartedEventPayload,
+  PipelineStageEventPayload,
+  PipelineLogEventPayload,
+  PipelineArtifactEventPayload,
+  PipelineQuestionEventPayload,
+  PipelineCompletedEventPayload,
+  PipelineErrorEventPayload,
+  PipelineLiveEventMap,
+  RunEvent,
+  RunStatus,
+  StageEndStatus,
+} from "./events";
 export { PIPELINE_EVENTS } from "./events";
 
 export type {
@@ -43,6 +58,19 @@ export type {
 export type { ChatMessage, RunSummaryFile } from "./storage";
 
 export type { ActiveView } from "./navigation";
+
+export type {
+  PipelineExecutionMode,
+  PipelineExecutionStatus,
+  PipelineStageExecutionStatus,
+  PipelineRunState,
+  PipelineStageState,
+  PipelineStageEventRecord,
+  PipelineLogEntry,
+  PipelineArtifactEntry,
+  PipelineQuestionState,
+  PipelineExecutionState,
+} from "./execution";
 
 export type {
   HealthResponse,
