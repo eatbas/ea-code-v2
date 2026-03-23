@@ -1,6 +1,8 @@
 pub mod commands;
 pub mod hive_client;
 pub mod models;
+pub mod prompts;
+pub mod storage;
 
 pub fn run() {
     tauri::Builder::default()
@@ -19,6 +21,13 @@ pub fn run() {
             commands::hive_api::hive_api_process_running,
             commands::hive_monitor::start_hive_monitor,
             commands::hive_monitor::stop_hive_monitor,
+            commands::templates::list_templates,
+            commands::templates::get_template,
+            commands::templates::create_template,
+            commands::templates::update_template,
+            commands::templates::delete_template,
+            commands::templates::clone_template,
+            commands::templates::enhance_prompt,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

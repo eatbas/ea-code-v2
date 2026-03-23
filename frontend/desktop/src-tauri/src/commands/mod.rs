@@ -1,5 +1,6 @@
 pub mod hive_api;
 pub mod hive_monitor;
+pub mod templates;
 
 use std::collections::HashMap;
 use std::sync::atomic::AtomicBool;

@@ -1,4 +1,4 @@
-﻿# Phase 3 - Pipeline Templates, Prompts, and Persistence
+﻿# Phase 3 - Pipeline Templates, Prompts, and Persistence ✅ COMPLETED
 
 ## Objective
 
@@ -313,6 +313,68 @@ Validate templates on save and before execution:
 ## Estimated duration
 
 1 week
+
+---
+
+## Implementation results
+
+### Files created — Rust backend
+
+| File | Purpose | Tests |
+|------|---------|-------|
+| `src-tauri/src/storage/mod.rs` | Storage module root (exports templates, builtin_templates, builtin_prompts) | — |
+| `src-tauri/src/storage/templates.rs` | File-based CRUD: list, read, write (atomic), delete | 4 |
+| `src-tauri/src/storage/builtin_templates.rs` | 5 hardcoded built-in pipeline templates | 4 |
+| `src-tauri/src/storage/builtin_prompts.rs` | 11 reusable prompt constants for built-in templates | — |
+| `src-tauri/src/prompts/mod.rs` | Prompts module root | — |
+| `src-tauri/src/prompts/renderer.rs` | `render_prompt()` with `{{var}}` + `{{#if var}}...{{/if}}` | 9 |
+| `src-tauri/src/commands/templates.rs` | 7 Tauri commands: list, get, create, update, delete, clone, enhance_prompt | — |
+
+### Files created — TypeScript frontend
+
+| File | Purpose |
+|------|---------|
+| `src/hooks/usePipelineTemplates.ts` | React hook: CRUD + enhance_prompt + derived builtin/user lists |
+
+### Files modified
+
+| File | Change |
+|------|--------|
+| `src-tauri/src/lib.rs` | Added `pub mod prompts; pub mod storage;`, registered 7 template commands |
+| `src-tauri/src/commands/mod.rs` | Added `pub mod templates;` |
+| `src-tauri/Cargo.toml` | Added `dirs = "6"`, `uuid = { version = "1", features = ["v4"] }`, `chrono = { version = "0.4", features = ["serde"] }` |
+
+### Tauri commands registered
+
+| Command | Purpose |
+|---------|---------|
+| `list_templates` | All built-in + user templates, sorted by name |
+| `get_template` | Single template by ID (builtin or user) |
+| `create_template` | Create user template with UUID, validation |
+| `update_template` | Update user template (rejects builtin) |
+| `delete_template` | Delete user template (rejects builtin) |
+| `clone_template` | Clone any template into user copy with new ID |
+| `enhance_prompt` | Send draft to hive-api for AI-powered improvement |
+
+### Built-in templates shipped
+
+| ID | Name | Stages | Providers |
+|----|------|--------|-----------|
+| `full-review-loop` | Full Review Loop | 4 (analyse→review→implement→test) | claude opus + sonnet |
+| `quick-fix` | Quick Fix | 2 (implement→test) | claude sonnet |
+| `research-only` | Research Only | 2 (analyse→review) | claude opus |
+| `multi-brain-review` | Multi-Brain Review | 5 (analyse→review×2→implement→test) | claude + gemini + codex |
+| `security-audit` | Security Audit | 5 (analyse→security→review→implement→test) | claude opus + sonnet |
+
+### Verification
+
+| Check | Result |
+|-------|--------|
+| `cargo check` | ✅ Zero warnings |
+| `cargo test` | ✅ 91 passed, 0 failed |
+| `npx tsc --noEmit` | ✅ Zero errors |
+| All files < 300 lines | ✅ |
+| All 5 built-in templates pass validate_template() | ✅ |
 
 
 
